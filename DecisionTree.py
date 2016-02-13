@@ -55,7 +55,7 @@ def calcIG(entropy, data_set, attr_col_num):
         oneVI = calcVI(count_1_1 + count_1_0, count_1_0, count_1_1)
     # Calculates VI(Sx) for attribute value 0
     zeroVI = 0.00
-    if(count_0_1 + count_0_0) == 0:
+    if (count_0_1 + count_0_0) == 0:
         zeroVI = 0.00
     else:
         zeroVI = calcVI(count_0_1 + count_0_0, count_0_0, count_0_1)
@@ -139,7 +139,9 @@ def buildID3(data_set, attributes):
                 highest_gain = gain
                 attr_index_most_gain = i
         root.set_label(attributes[attr_index_most_gain])
+        attributes.pop(attr_index_most_gain)
         # Left is subset of instances with chosen attribute having value 0
+        print "doing left"
         left = []
         for i in range(0, len(data_set)):
             if data_set[i][attr_index_most_gain] == '0':
@@ -149,9 +151,9 @@ def buildID3(data_set, attributes):
             root.set_left0(Node(mostCommonClass(left)))
         else:
             # Make new subtree
-            attributes.pop(attr_index_most_gain)
             root.set_left0(buildID3(left, attributes))
         # Right is subset of instances with chosen attribute having value 1
+        print "Doing right"
         right = []
         for i in range(0, len(data_set)):
             if data_set[i][attr_index_most_gain] == '1':
@@ -161,12 +163,30 @@ def buildID3(data_set, attributes):
             root.set_right1(Node(mostCommonClass(right)))
         else:
             # Make new subtree
-            attributes.pop(attr_index_most_gain)
             root.set_right1(buildID3(right, attributes))
     return root
 
 
-# Nodes for decision tree. Root node has "None" for parent
+def printTree(root_node, level):
+    if root_node.get_label() == '0' or root_node.get_label() == '1':
+        # Print leaf node
+        print root_node.get_label(),
+    else:
+        # Print attribute (internal) nodes
+        # Print left side (0) first and then right side (1)
+        print
+        for i in range(0, level):
+            print "|",
+        print "%s = 0 : " % (root_node.get_label()),
+        printTree(root_node.get_left0(), level + 1)
+        print
+        for i in range(0, level):
+            print "|",
+        print "%s = 1 : " % (root_node.get_label()),
+        printTree(root_node.get_right1(), level + 1)
+
+
+# Nodes class for decision tree nodes. Root node has "None" for parent
 # Left branch is for attribute value 0 and right is for 1
 class Node:
     # Initially node has None for parent node, and left and right branches
@@ -176,18 +196,27 @@ class Node:
     label = None
 
     def __init__(self, label):
-        pass
+        self.label = label
 
     def set_label(self, value):
         self.label = value
+
+    def get_label(self):
+        return self.label
 
     # left branch can be another attribute or a leaf where classification = 0 or 1
     def set_left0(self, value):
         self.left0 = value
 
+    def get_left0(self):
+        return self.left0
+
     # right branch can be another attribute or a leaf where classification = 0 or 1
     def set_right1(self, value):
         self.right1 = value
+
+    def get_right1(self):
+        return self.right1
 
 
 def main(training_csv):
@@ -224,7 +253,8 @@ def main(training_csv):
         print "Gain for attr %s, %d: %.6f" % (
             training_set_attributes[i], i, calcIG(entropy, training_set_instances, i)) + "\n"
 
-    print buildID3(training_set_instances, training_set_attributes)
+    id3_tree = buildID3(training_set_instances, training_set_attributes)
+    printTree(id3_tree, 0)
 
 
 if __name__ == '__main__':
