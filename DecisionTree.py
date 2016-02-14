@@ -1,10 +1,11 @@
 # Henry Dinh - HxD130130
 # CS 6375.001
-# Assignment 1 - Decision Tree
-# To test the program...
+# Assignment 1 - ID3 Decision Tree Implementation
+# To test the program, read the README file.
 
 import csv
 import sys
+from random import randint
 
 # Each set is a list of lists
 # Index 0 of each list contains attribute name
@@ -12,8 +13,14 @@ import sys
 training_set = []
 training_set_attributes = []
 training_set_instances = []
-test_set = []
+
 validation_set = []
+validation_set_attributes = []
+validation_set_instances = []
+
+test_set = []
+test_set_attributes = []
+test_set_instances = []
 
 
 # Calculates variance impurity (enropy), VI(S)
@@ -117,7 +124,6 @@ def class0(data_set):
 # data_set is set of instances and attributes is the list of attributes being tested/remaining (reduced througout)
 def buildID3(data_set, attributes):
     root = Node(None)
-    print attributes
     if checkAttrClassification(data_set):
         # if all instances have same value for classification, \
         # return this single node (leaf) with classification value (0 or 1)
@@ -131,7 +137,6 @@ def buildID3(data_set, attributes):
         attr_index_most_gain = 0
         # find entropy for current node attribute
         entropy = calcVI(len(data_set), class0(data_set), class1(data_set))
-        print "Current entropy: %.4f" % entropy
         # Find gain for each attribute except last one, which is the classification
         for i in range(0, len(attributes) - 1):
             gain = calcIG(entropy, data_set, i)
@@ -141,7 +146,6 @@ def buildID3(data_set, attributes):
         root.set_label(attributes[attr_index_most_gain])
         attributes.pop(attr_index_most_gain)
         # Left is subset of instances with chosen attribute having value 0
-        print "doing left"
         left = []
         for i in range(0, len(data_set)):
             if data_set[i][attr_index_most_gain] == '0':
@@ -153,7 +157,6 @@ def buildID3(data_set, attributes):
             # Make new subtree
             root.set_left0(buildID3(left, attributes))
         # Right is subset of instances with chosen attribute having value 1
-        print "Doing right"
         right = []
         for i in range(0, len(data_set)):
             if data_set[i][attr_index_most_gain] == '1':
@@ -186,6 +189,45 @@ def printTree(root_node, level):
         printTree(root_node.get_right1(), level + 1)
 
 
+# Counts number of non-leaf nodes
+def countNonLeafNodes(root_node):
+    if root_node is None or (root_node.get_left0() is None and root_node.get_right1() is None):
+        return 0
+    return 1 + countNonLeafNodes(root_node.get_left0()) + countNonLeafNodes(root_node.get_right1())
+
+
+# Orders (number) non-leaf nodes from 1 to number of non-leaf nodes
+# n is list of numbers to give to nodes. already_numbered keeps tracks of nodes already numbered..
+def orderNonLeafNodes(root_node, n, already_numbered):
+    if root_node.get_left0() is not None and root_node.get_left0() != '1' and root_node.get_left0() != '0':
+        orderNonLeafNodes(root_node.get_left0(), n, already_numbered)
+        if n and root_node.get_label() not in already_numbered:
+            root_node.set_number(n.pop())
+            already_numbered.append(root_node.get_label())
+    if root_node.get_right1() is not None and root_node.get_right1() != '1' and root_node.get_right1() != '0':
+        orderNonLeafNodes(root_node.get_right1(), n, already_numbered)
+        if n and root_node.get_label() not in already_numbered:
+            root_node.set_number(n.pop())
+            already_numbered.append(root_node.get_label())
+
+
+# Post pruning algorithm
+def postPrune(d, l, k):
+    d_best = d
+    for i in range(1, l + 1):
+        d_prime = d
+        m = randint(1, k)
+        for j in range(1, m + 1):
+            # n is number of non-leaf nodes in the decision tree d_prime
+            n = countNonLeafNodes(d_prime)
+            # Order non-leaf nodes in D' from 1 to n
+            nonleaf_nodes_nums = []
+            for z in range(1, n + 1):
+                nonleaf_nodes_nums.append(z)
+            orderNonLeafNodes(d_prime, nonleaf_nodes_nums, list())
+            p = randint(1, n)
+
+
 # Nodes class for decision tree nodes. Root node has "None" for parent
 # Left branch is for attribute value 0 and right is for 1
 class Node:
@@ -194,6 +236,8 @@ class Node:
     right1 = None
     # Attribute name of the node
     label = None
+    # Number for post pruning later
+    number = None
 
     def __init__(self, label):
         self.label = label
@@ -218,9 +262,19 @@ class Node:
     def get_right1(self):
         return self.right1
 
+    def set_number(self, value):
+        self.number = value
+
+    def get_number(self):
+        return self.number
+
 
 def main(training_csv):
     # Use CSV reader to read csv files and store in lists
+    with open(training_csv, 'rb') as training_set:
+        reader = csv.reader(training_set)
+        training_set = list(reader)
+
     with open(training_csv, 'rb') as training_set:
         reader = csv.reader(training_set)
         training_set = list(reader)
@@ -242,18 +296,16 @@ def main(training_csv):
         elif training_set_instances[i][len(training_set_instances[i]) - 1] == '1':
             k1 += 1
 
-    print "Stats for training set 1:"
-    print "k = %d" % k
-    print "k0 = %d" % k0
-    print "k1 = %d" % k1
+    print "Stats for the training set, S:"
+    print "Total instances = %d" % k
+    print "Instances with class 0 = %d" % k0
+    print "Instances with class 1 = %d" % k1
     entropy = calcVI(k, k0, k1)
     print "VI(S) = %.4f" % entropy + "\n"
 
-    for i in range(0, len(training_set_attributes)):
-        print "Gain for attr %s, %d: %.6f" % (
-            training_set_attributes[i], i, calcIG(entropy, training_set_instances, i)) + "\n"
-
+    # Build the decision tree and print it with correct format
     id3_tree = buildID3(training_set_instances, training_set_attributes)
+    print "Decision tree before pruning: ",
     printTree(id3_tree, 0)
 
 
