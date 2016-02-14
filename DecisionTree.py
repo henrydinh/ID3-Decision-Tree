@@ -211,6 +211,52 @@ def orderNonLeafNodes(root_node, n, already_numbered):
             already_numbered.append(root_node.get_label())
 
 
+# Used to count majority class of subset of data at attribute p
+def countMajorityClass(tree, data, p):
+    count_1 = 0
+    count_0 = 0
+    for i in range(0, len(data)):
+        current_node = tree
+        passes_thru_p = False
+        while (current_node.get_left0() is not None and current_node.get_right1() is not None):
+            current_node_label = current_node.get_label()
+            if str(current_node_label) == str(p):
+                passes_thru_p = True
+            attr_index = validation_set_attributes.index(current_node_label)
+            if data[i][attr_index] == '0':
+                current_node = current_node.get_left0()
+            elif data[i][attr_index] == '1':
+                current_node = current_node.get_right1()
+        if passes_thru_p and data[i][len(data[i]) - 1] == '1':
+            count_1 += 1
+        elif passes_thru_p and data[i][len(data[i]) - 1] == '0':
+            count_0 += 0
+    if count_1 >= count_0:
+        return '1'
+    else:
+        return '0'
+
+
+# replaces a node in the tree with number = p with leaf_value
+def replaceNode(root_node, p, leaf_value):
+    if root_node is not None:
+        if root_node.get_left0() is not None and root_node.get_left0() != '1' and root_node.get_left0() != '0':
+            if str(root_node.get_number()) == str(p):
+                root_node.set_left0(None)
+                root_node.set_right1(None)
+                root_node.set_label(leaf_value)
+                root_node.set_number(None)
+            replaceNode(root_node.get_left0(), p, leaf_value)
+    if root_node is not None:
+        if root_node.get_right1() is not None and root_node.get_right1() != '1' and root_node.get_right1() != '0':
+            if str(root_node.get_number()) == str(p):
+                root_node.set_left0(None)
+                root_node.set_right1(None)
+                root_node.set_label(leaf_value)
+                root_node.set_number(None)
+            replaceNode(root_node.get_right1(), p, leaf_value)
+
+
 # Post pruning algorithm
 def postPrune(d, l, k):
     d_best = d
@@ -225,7 +271,43 @@ def postPrune(d, l, k):
             for z in range(1, n + 1):
                 nonleaf_nodes_nums.append(z)
             orderNonLeafNodes(d_prime, nonleaf_nodes_nums, list())
-            p = randint(1, n)
+            if n <= 1:
+                p = 1
+            else:
+                p = randint(1, n)
+            # Replace subtree rooted at p in d_prime with a leaf node
+            # leaf node's value = majority class of subset of data at P
+            new_leaf_value = countMajorityClass(d_prime, training_set_instances, p)
+            replaceNode(d_prime, p, new_leaf_value)
+        if testDecisionTree(d_prime, validation_set_instances) > testDecisionTree(d_best, validation_set_instances):
+            d_best = d_prime
+    return d_best
+
+
+# Tests the accuracy of the decision tree created with the training set
+# on the other sets (validation and test sets)
+# returns the accuracy percentage = correct classification / total number of instances tested
+def testDecisionTree(training_tree, testing_instances):
+    # Keep track of successful classifications
+    correct_classification = 0
+    # compare all instances in the set
+    for i in range(0, len(testing_instances)):
+        # start comparison of attribute values at root node
+        current_node = training_tree
+        # compare while not at a leaf in the tree
+        while (current_node.get_left0() is not None and current_node.get_right1() is not None):
+            # gets the current node's attribute name
+            current_node_label = current_node.get_label()
+            # The current comparison attribute's index/column number
+            attr_index = validation_set_attributes.index(current_node_label)
+            if testing_instances[i][attr_index] == '0':
+                current_node = current_node.get_left0()
+            elif testing_instances[i][attr_index] == '1':
+                current_node = current_node.get_right1()
+        # Now current_node should be a leaf. Compare classification values
+        if testing_instances[i][len(testing_instances[i]) - 1] == str(current_node.get_label()):
+            correct_classification += 1
+    return float(correct_classification) / float(len(testing_instances)) * 100.00
 
 
 # Nodes class for decision tree nodes. Root node has "None" for parent
@@ -269,20 +351,31 @@ class Node:
         return self.number
 
 
-def main(training_csv):
+def main(l, k, training_csv, validation_csv, test_csv, to_print):
     # Use CSV reader to read csv files and store in lists
-    with open(training_csv, 'rb') as training_set:
-        reader = csv.reader(training_set)
+    with open(training_csv, 'rb') as training:
+        reader = csv.reader(training)
         training_set = list(reader)
 
-    with open(training_csv, 'rb') as training_set:
-        reader = csv.reader(training_set)
-        training_set = list(reader)
+    with open(validation_csv, 'rb') as validation:
+        reader = csv.reader(validation)
+        validation_set = list(reader)
+
+    with open(test_csv, 'rb') as test:
+        reader = csv.reader(test)
+        test_set = list(reader)
 
     # Make list for attribute names and list for instances
     training_set_attributes = training_set[0]
     for i in range(1, len(training_set)):
         training_set_instances.append(training_set[i])
+    for i in range(0, len(validation_set[0])):
+        validation_set_attributes.append(str(validation_set[0][i]))
+    for i in range(1, len(validation_set)):
+        validation_set_instances.append(validation_set[i])
+    test_set_attributes = test_set[0]
+    for i in range(1, len(test_set)):
+        test_set_instances.append(test_set[i])
 
     # k is number of examples in training set
     k = len(training_set_instances)
@@ -305,9 +398,33 @@ def main(training_csv):
 
     # Build the decision tree and print it with correct format
     id3_tree = buildID3(training_set_instances, training_set_attributes)
-    print "Decision tree before pruning: ",
-    printTree(id3_tree, 0)
+    if to_print.lower() == "yes":
+        print "Decision tree before pruning: ",
+        printTree(id3_tree, 0)
+        print
+    "Decision tree before pruning stats:"
+    print "Accuracy for training set: %.4f" % testDecisionTree(id3_tree, training_set_instances)
+    print "Accuracy for validation set: %.4f" % testDecisionTree(id3_tree, validation_set_instances)
+    print "Accuracy for test set: %.4f" % testDecisionTree(id3_tree, test_set_instances)
+    print
+
+    # The decision tree after pruning with chosen values for l and k
+    post_prune_tree = postPrune(id3_tree, l, k)
+    if to_print.lower() == "yes":
+        print "Decision tree after pruning: ",
+        printTree(post_prune_tree, 0)
+        print
+    print "Decision tree after pruning stats:"
+    print "Accuracy for training set: %.4f" % testDecisionTree(post_prune_tree, training_set_instances)
+    print "Accuracy for validation set: %.4f" % testDecisionTree(post_prune_tree, validation_set_instances)
+    print "Accuracy for test set: %.4f" % testDecisionTree(post_prune_tree, test_set_instances)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    l = sys.argv[1]  # integer used in post-pruning algorithm
+    k = sys.argv[2]  # integer used in post_pruning algorithm
+    tr_set = sys.argv[3]  # training data
+    v_set = sys.argv[4]  # validation data
+    t_set = sys.argv[5]  # test data
+    to_print = sys.argv[6]  # yes or no to print trees
+    main(l, k, tr_set, v_set, t_set, to_print)
