@@ -6,6 +6,7 @@
 import csv
 import sys
 from random import randint
+from copy import deepcopy
 
 # Each set is a list of lists
 # Index 0 of each list contains attribute name
@@ -239,30 +240,26 @@ def countMajorityClass(tree, data, p):
 
 # replaces a node in the tree with number = p with leaf_value
 def replaceNode(root_node, p, leaf_value):
-    if root_node is not None:
-        if root_node.get_left0() is not None and root_node.get_left0() != '1' and root_node.get_left0() != '0':
-            if str(root_node.get_number()) == str(p):
+    if str(root_node.get_number()) == str(p):
                 root_node.set_left0(None)
                 root_node.set_right1(None)
                 root_node.set_label(leaf_value)
                 root_node.set_number(None)
+    if root_node is not None:
+        if root_node.get_left0() is not None and root_node.get_left0() != '1' and root_node.get_left0() != '0':
             replaceNode(root_node.get_left0(), p, leaf_value)
     if root_node is not None:
         if root_node.get_right1() is not None and root_node.get_right1() != '1' and root_node.get_right1() != '0':
-            if str(root_node.get_number()) == str(p):
-                root_node.set_left0(None)
-                root_node.set_right1(None)
-                root_node.set_label(leaf_value)
-                root_node.set_number(None)
             replaceNode(root_node.get_right1(), p, leaf_value)
 
 
 # Post pruning algorithm
 def postPrune(d, l, k):
-    d_best = d
-    for i in range(1, l + 1):
-        d_prime = d
-        m = randint(1, k)
+    d_best = deepcopy(d)
+    for i in range(1, int(l) + 1):
+        d_prime = deepcopy(d)
+        m = randint(1, int(k))
+
         for j in range(1, m + 1):
             # n is number of non-leaf nodes in the decision tree d_prime
             n = countNonLeafNodes(d_prime)
@@ -377,24 +374,9 @@ def main(l, k, training_csv, validation_csv, test_csv, to_print):
     for i in range(1, len(test_set)):
         test_set_instances.append(test_set[i])
 
-    # k is number of examples in training set
-    k = len(training_set_instances)
-    # k0 is number of training examples with class = 0
-    # k1 is number of training examples with class = 1
-    k0 = 0
-    k1 = 0
-    for i in range(0, len(training_set_instances)):
-        if training_set_instances[i][len(training_set_instances[i]) - 1] == '0':
-            k0 += 1
-        elif training_set_instances[i][len(training_set_instances[i]) - 1] == '1':
-            k1 += 1
-
-    print "Stats for the training set, S:"
-    print "Total instances = %d" % k
-    print "Instances with class 0 = %d" % k0
-    print "Instances with class 1 = %d" % k1
-    entropy = calcVI(k, k0, k1)
-    print "VI(S) = %.4f" % entropy + "\n"
+    print "Chosen l value: %d" % int(l)
+    print "Chosen k value: %d" % int(k)
+    print
 
     # Build the decision tree and print it with correct format
     id3_tree = buildID3(training_set_instances, training_set_attributes)
@@ -402,7 +384,7 @@ def main(l, k, training_csv, validation_csv, test_csv, to_print):
         print "Decision tree before pruning: ",
         printTree(id3_tree, 0)
         print
-    "Decision tree before pruning stats:"
+    print "Decision tree before pruning stats:"
     print "Accuracy for training set: %.4f" % testDecisionTree(id3_tree, training_set_instances)
     print "Accuracy for validation set: %.4f" % testDecisionTree(id3_tree, validation_set_instances)
     print "Accuracy for test set: %.4f" % testDecisionTree(id3_tree, test_set_instances)
@@ -421,10 +403,10 @@ def main(l, k, training_csv, validation_csv, test_csv, to_print):
 
 
 if __name__ == '__main__':
-    l = sys.argv[1]  # integer used in post-pruning algorithm
-    k = sys.argv[2]  # integer used in post_pruning algorithm
+    l_value = sys.argv[1]  # integer used in post-pruning algorithm
+    k_value = sys.argv[2]  # integer used in post_pruning algorithm
     tr_set = sys.argv[3]  # training data
     v_set = sys.argv[4]  # validation data
     t_set = sys.argv[5]  # test data
     to_print = sys.argv[6]  # yes or no to print trees
-    main(l, k, tr_set, v_set, t_set, to_print)
+    main(l_value, k_value, tr_set, v_set, t_set, to_print)
